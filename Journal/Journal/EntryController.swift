@@ -55,13 +55,13 @@ class EntryController {
                           mood: mood,
                           context: CoreDataStack.shared.mainContext)
         
+        put(entry: entry)
+
         do {
             try CoreDataStack.shared.save()
         } catch {
             NSLog("Error saving managed object context (after create) to CoreData: \(error)")
         }
-
-        put(entry: entry)
     }
 
     func put(entry: Entry, completion: @escaping CompletionHandler = { _ in }) {
@@ -77,7 +77,6 @@ class EntryController {
             }
             representation.identifier = uuid
             entry.identifier = uuid // TODO: ? What if it didn't change?
-            try CoreDataStack.shared.mainContext.save()
             request.httpBody = try JSONEncoder().encode(representation)
             
         } catch {
@@ -97,16 +96,6 @@ class EntryController {
     }
 
     // Read
-    private func loadFromPersistentStore() -> [Entry] {
-        let fetchRequest: NSFetchRequest<Entry> = Entry.fetchRequest()
-        
-        do {
-            return try CoreDataStack.shared.mainContext.fetch(fetchRequest)
-        } catch {
-            NSLog("Error fetching entries: \(error)")
-        }
-        return []
-    }
 
     // Update
     func update(entry: Entry,
@@ -119,13 +108,13 @@ class EntryController {
         entry.timestamp = Date()
         entry.mood = mood.rawValue
         
+        put(entry: entry)
+
         do {
             try CoreDataStack.shared.save()
         } catch {
             NSLog("Error saving managed object context (after update) to CoreData: \(error)")
         }
-
-        put(entry: entry)
     }
 
     private func update(entry: Entry, with representation: EntryRepresentation) {
@@ -220,20 +209,15 @@ class EntryController {
 
         CoreDataStack.shared.mainContext.delete(entry)
 
-        // TODO: ? Compare with this code
-//        if let moc = person.managedObjectContext {
-//            moc.delete(person)
-//        }
-        
+        // Delete from Firebase (copy of record)
+        delete(entry: entry) { _ in print("Deleted") }
+
+        // Delete from CoreData
         do {
             try CoreDataStack.shared.save()
         } catch {
             NSLog("Error saving managed object context (after delete) to CoreData: \(error)")
         }
-
-        delete(entry: entry) { _ in print("Deleted") }
-        
-        // FIXME: Firebase delete. EntryController Step 4 and 5.
     }
 
     func delete(entry: Entry, completion: @escaping CompletionHandler = { _ in }) {
