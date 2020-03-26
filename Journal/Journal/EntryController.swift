@@ -55,17 +55,13 @@ class EntryController {
                           mood: mood,
                           context: CoreDataStack.shared.mainContext)
         
-        saveToPersistentStore()
+        do {
+            try CoreDataStack.shared.save()
+        } catch {
+            NSLog("Error saving managed object context (after create) to CoreData: \(error)")
+        }
 
         put(entry: entry)
-    }
-
-    private func saveToPersistentStore() {
-        do {
-            try CoreDataStack.shared.mainContext.save()
-        } catch {
-            NSLog("Error saving managed error context: \(error)")
-        }
     }
 
     func put(entry: Entry, completion: @escaping CompletionHandler = { _ in }) {
@@ -123,7 +119,11 @@ class EntryController {
         entry.timestamp = Date()
         entry.mood = mood.rawValue
         
-        saveToPersistentStore()
+        do {
+            try CoreDataStack.shared.save()
+        } catch {
+            NSLog("Error saving managed object context (after update) to CoreData: \(error)")
+        }
 
         put(entry: entry)
     }
@@ -225,9 +225,13 @@ class EntryController {
 //            moc.delete(person)
 //        }
         
+        do {
+            try CoreDataStack.shared.save()
+        } catch {
+            NSLog("Error saving managed object context (after delete) to CoreData: \(error)")
+        }
+
         delete(entry: entry) { _ in print("Deleted") }
-        
-        saveToPersistentStore()
         
         // FIXME: Firebase delete. EntryController Step 4 and 5.
     }
