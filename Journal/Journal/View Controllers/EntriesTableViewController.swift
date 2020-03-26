@@ -14,6 +14,7 @@ class EntriesTableViewController: UITableViewController {
     // MARK: - Properities
     var entryController = EntryController()
     
+    /// Remember, this will be executed on first read and then will hold the returned result of frc
     lazy var fetchedResultsController:  NSFetchedResultsController<Entry> = {
         let fetchRequest: NSFetchRequest<Entry> = Entry.fetchRequest()
         

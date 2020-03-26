@@ -142,32 +142,35 @@ class EntryController {
         fetchRequest.predicate = NSPredicate(format: "identifier IN %@", identifiersToFetch)
 
         /// Perform the fetch request on your core data stack's mainContext.
-        let context = CoreDataStack.shared.mainContext
+        let context = CoreDataStack.shared.container.newBackgroundContext()
         
-        do {
-            /// This will return an array of Entry objects whose identifier was in the array you passed in to the predicate.
-            let existingEntries = try context.fetch(fetchRequest)
-            
-            /// Loop through the fetched entries and call update. Then remove the entry from the dictionary. Afterwards we'll create entries from the remaining objects in the dictionary. The only ones that would remain after this loop are ones that didn't exist in Core Data already.
-            for entry in existingEntries {
-                guard let id = entry.identifier,
-                    let representation = representationsByID[id] else { continue }
-                self.update(entry: entry, with: representation)
-                entriesToCreate.removeValue(forKey: id)
+        context.performAndWait {
+            do {
+                /// This will return an array of Entry objects whose identifier was in the array you passed in to the predicate.
+                let existingEntries = try context.fetch(fetchRequest)
+                
+                /// Loop through the fetched entries and call update. Then remove the entry from the dictionary. Afterwards we'll create entries from the remaining objects in the dictionary. The only ones that would remain after this loop are ones that didn't exist in Core Data already.
+                for entry in existingEntries {
+                    guard let id = entry.identifier,
+                        let representation = representationsByID[id] else { continue }
+                    self.update(entry: entry, with: representation)
+                    entriesToCreate.removeValue(forKey: id)
+                }
+                
+                /// Create an entry for each of the values in entriesToCreate using the Entry initializer that takes in an EntryRepresentation and an NSManagedObjectContext
+                for representation in entriesToCreate.values {
+                    Entry(entryRepresentation: representation, context: context)
+                }
+
+                // TODO: ? This isn't under both loops. Concerned about saving too much
+                /// Under both loops, call saveToPersistentStore() to persist the changes and effectively synchronize the data in the device's persistent store with the data on the server. Since you are using an NSFetchedResultsController, as soon as you save the managed object context, the fetched results controller will observe those changes and automatically update the table view with the updated entries.
+                try context.save() // Caller will handle
+
+            } catch {
+                /// Make sure you handle a potential error from the fetch method on your managed object context, as it is a throwing method.
+                NSLog("Error fetching entries for UUIDs: \(error)")
             }
-            
-            /// Create an entry for each of the values in entriesToCreate using the Entry initializer that takes in an EntryRepresentation and an NSManagedObjectContext
-            for representation in entriesToCreate.values {
-                Entry(entryRepresentation: representation, context: context)
-            }
-        } catch {
-            /// Make sure you handle a potential error from the fetch method on your managed object context, as it is a throwing method.
-            NSLog("Error fetching entries for UUIDs: \(error)")
         }
-        
-        // TODO: ? This isn't under both loops. Concerned about saving too much
-        /// Under both loops, call saveToPersistentStore() to persist the changes and effectively synchronize the data in the device's persistent store with the data on the server. Since you are using an NSFetchedResultsController, as soon as you save the managed object context, the fetched results controller will observe those changes and automatically update the table view with the updated entries.
-        try context.save() // Caller will handle
     }
     
     private func fetchEntriesFromServer(completion: @escaping CompletionHandler = { _ in }) {
